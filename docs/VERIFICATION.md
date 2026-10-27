@@ -12,7 +12,7 @@ Verified locally on October 27, 2026, on macOS with Python 3.9.6 and Node.js 25.
 | Frontend dependency audit | 0 known vulnerabilities reported |
 | Desktop and mobile screenshots | Inspected |
 
-The browser workflow used the built frontend and a real FastAPI server with an isolated SQLite database. It covered sample import, search, scoped local briefs, Markdown download, partial CSV validation, persistence after reload, and a 390-pixel mobile viewport. Screenshots are in this folder.
+The browser workflow used the built frontend and a real FastAPI server with an isolated SQLite database. It covered sample import, search, scoped local briefs, Markdown download, partial CSV validation, persistence after reload, and a 390-pixel mobile viewport. Screenshots are in this folder and show the redesigned dark interface. The desktop layout uses horizontal navigation; the mobile layout stacks the analytics panels without horizontal overflow.
 
 The React suite also checks that a late brief response is discarded if the user changes the feedback scope while generation is in progress.
 

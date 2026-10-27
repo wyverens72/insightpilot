@@ -196,7 +196,7 @@ export default function App() {
           </div>
           <span className="workspace-status" />
         </div>
-        <div className="nav-label">WORKSPACE</div>
+
         <nav aria-label="Main navigation">
           {navigation.map((item) => (
             <button
@@ -213,28 +213,6 @@ export default function App() {
             </button>
           ))}
         </nav>
-        <div className="sidebar-note">
-          <div className="note-icon">
-            <Sparkles size={19} />
-          </div>
-          <strong>Feedback into focus.</strong>
-          <p>
-            Find the patterns behind customer opinions and your next product
-            move.
-          </p>
-          <button
-            onClick={() => {
-              setResult(null);
-              setImportOpen(true);
-            }}
-          >
-            Add your reviews <ArrowRight size={15} />
-          </button>
-        </div>
-        <div className="sidebar-bottom">
-          <span className="local-dot" /> Local workspace{" "}
-          <span className="version">v1.0</span>
-        </div>
       </aside>
       <div className="main-shell">
         <header className="topbar">
@@ -250,12 +228,16 @@ export default function App() {
           </div>
         </header>
         <main>
-          <div className="page-heading">
+          <div
+            className={`page-heading ${view === "overview" ? "overview-heading" : ""}`}
+          >
             <div>
-              <div className="eyebrow">LISTEN. UNDERSTAND. IMPROVE.</div>
+              <div className="eyebrow">
+                CUSTOMER INTELLIGENCE / WORKSPACE 01
+              </div>
               <h1>
                 {view === "overview"
-                  ? "Your customers, in focus."
+                  ? "Small signals. Big decisions."
                   : labels[view]}
               </h1>
               <p>
@@ -517,7 +499,7 @@ export default function App() {
                         role="img"
                         aria-label={`${dashboard.positive_share}% positive, ${dashboard.sentiments.neutral} neutral, ${dashboard.sentiments.negative} negative reviews`}
                         style={{
-                          background: `conic-gradient(var(--green) 0 ${(dashboard.sentiments.positive / total) * 100}%, #c5c9d7 ${(dashboard.sentiments.positive / total) * 100}% ${((dashboard.sentiments.positive + dashboard.sentiments.neutral) / total) * 100}%, var(--coral) 0)`,
+                          background: `conic-gradient(var(--green) 0 ${(dashboard.sentiments.positive / total) * 100}%, #667485 ${(dashboard.sentiments.positive / total) * 100}% ${((dashboard.sentiments.positive + dashboard.sentiments.neutral) / total) * 100}%, var(--coral) 0)`,
                         }}
                       >
                         <div>

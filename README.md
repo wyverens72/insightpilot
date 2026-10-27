@@ -6,6 +6,8 @@ InsightPilot turns a CSV of customer reviews into an interactive dashboard and a
 
 ![InsightPilot dashboard](docs/dashboard.png)
 
+The interface uses a graphite canvas, horizontal workspace navigation, and distinct lime, cobalt, terracotta, and amber accents. The responsive layout keeps the same review workflow available on desktop and mobile.
+
 ## Run it on a Mac
 
 You need Python 3.9+ and Node.js 22.12+ (Node 24 LTS is also suitable). From the project directory:
