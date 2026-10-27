@@ -63,10 +63,10 @@ export async function handleAPI(
   try {
     if (!env.DB) throw new Failure(503, "Storage is not available yet.");
     const db = env.DB;
-    if (!["GET", "POST"].includes(method))
+    if (!["GET", "POST", "DELETE"].includes(method))
       throw new Failure(405, "Method not allowed.");
     if (
-      method === "POST" &&
+      ["POST", "DELETE"].includes(method) &&
       request.headers.get("origin") &&
       request.headers.get("origin") !== url.origin
     )
@@ -92,7 +92,9 @@ export async function handleAPI(
       });
     const load = async (id: string) => {
       const row = await db
-        .prepare("SELECT value FROM workspace_documents WHERE id=? AND owner=?")
+        .prepare(
+          "SELECT value FROM workspace_documents WHERE id=? AND owner=? AND kind<>'research-trash'",
+        )
         .bind(id, owner)
         .first<{ value: string }>();
       return row ? JSON.parse(row.value) : null;
@@ -266,12 +268,32 @@ export async function handleAPI(
     );
     if (researchMatch) {
       const [, id, action] = researchMatch;
+      if (!action && method === "POST") {
+        const result = await db
+          .prepare(
+            "UPDATE workspace_documents SET kind='research' WHERE id=? AND owner=? AND kind='research-trash'",
+          )
+          .bind(id, owner)
+          .run();
+        if (!result.meta.changes)
+          throw new Failure(404, "Deleted research was not found.");
+        return out({ restored: true });
+      }
       const doc = (await load(id)) as Research | null;
       if (!doc)
         throw new Failure(
           404,
           "This research was not found in your browser workspace.",
         );
+      if (!action && method === "DELETE") {
+        await db
+          .prepare(
+            "UPDATE workspace_documents SET kind='research-trash' WHERE id=? AND owner=? AND kind='research'",
+          )
+          .bind(id, owner)
+          .run();
+        return out({ deleted: true });
+      }
       if (!action && method === "GET") {
         if (doc.status === "discovering") progress(id);
         return out(publicDoc(doc));

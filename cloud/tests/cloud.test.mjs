@@ -294,3 +294,20 @@ test("article extraction excludes unrelated navigation and decodes punctuation",
   assert.ok(!page.text.includes("Unrelated"));
   assert.ok(page.text.includes("It's useful."));
 });
+test("research deletion is isolated, survives reload, and can be undone", async () => {
+  const f = fixture();
+  const a = await f.call('/api/health');
+  const b = await f.call('/api/health');
+  const session = a.cookie.split('=')[1];
+  const owner = Buffer.from(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(session))).toString('hex');
+  const doc = {id:'delete-test', name:'Todoist', url:'https://todoist.com/', status:'complete', sources:[], report:null, warnings:[], queries:[]};
+  f.sqlite.prepare('INSERT INTO workspace_documents (id,owner,kind,created,value,lease_until) VALUES (?,?,?,?,?,0)').run(doc.id, owner, 'research', new Date().toISOString(), JSON.stringify(doc));
+  assert.equal((await f.call('/api/research/delete-test', undefined, a.cookie)).status, 200);
+  assert.equal((await f.call('/api/research/delete-test', undefined, b.cookie, 'DELETE')).status, 404);
+  assert.equal((await f.call('/api/research/delete-test', undefined, a.cookie, 'DELETE')).status, 200);
+  assert.equal((await f.call('/api/research/delete-test', undefined, a.cookie)).status, 404);
+  assert.equal((await f.call('/api/research', undefined, a.cookie)).value.length, 0);
+  assert.equal((await f.call('/api/research/delete-test', {}, b.cookie)).status, 404);
+  assert.equal((await f.call('/api/research/delete-test', {}, a.cookie)).status, 200);
+  assert.equal((await f.call('/api/research', undefined, a.cookie)).value.length, 1);
+});

@@ -4,7 +4,7 @@
 
 [Open the public application](https://insightpilot-research.brightdrum2050.chatgpt.site)
 
-InsightPilot finds public material about a product, distinguishes company claims from third-party sources, and creates source-linked digests or free on-device AI summaries. It also imports review CSVs for a sentiment dashboard and review explorer.
+InsightPilot finds public material about a product, distinguishes company claims from third-party sources, and creates source-linked digests or free on-device AI summaries. The public interface focuses on URL research.
 
 ## Try it
 
@@ -13,7 +13,7 @@ InsightPilot finds public material about a product, distinguishes company claims
 3. Select relevant evidence and build a source digest, or enable **Use free on-device AI**.
 4. Check citations, export Markdown, and reopen saved research from history.
 
-For structured review analytics, open **Overview** and load the 36 fictional sample reviews or import your own CSV. The imported review dataset is separate from web research.
+Use **New research** to clear the current view. **Delete research** removes a saved search and its report from history; **Undo** restores it. Reloading preserves your last open research. CSV tools remain only in the original local edition.
 
 ## Free AI and hosting
 

@@ -2144,3 +2144,25 @@ summary {
     margin-bottom: 0;
   }
 }
+
+.research-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.research-toolbar p {
+  flex: 1;
+  min-width: 220px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.research-history .history-item {
+  display: flex;
+  gap: 4px;
+}
+.research-history .history-delete {
+  padding: 12px;
+  flex: 0;
+}

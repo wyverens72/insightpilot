@@ -9,6 +9,8 @@ import {
   Link2,
   LoaderCircle,
   Search,
+  Trash2,
+  Plus,
   ShieldCheck,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -77,6 +79,45 @@ export default function Research() {
   useEffect(() => () => modelAbort.current?.abort(), []);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [deleted, setDeleted] = useState<HistoryItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  function reset() {
+    modelAbort.current?.abort();
+    setJob(null);
+    setSelected([]);
+    setProduct("");
+    setUrl("");
+    setName("");
+    setError("");
+    savedResearch("remove");
+  }
+  async function removeResearch(item: HistoryItem) {
+    setDeleting(true);
+    setError("");
+    try {
+      await request(`/research/${item.id}`, { method: "DELETE" });
+      if (job?.id === item.id) reset();
+      setDeleted(item);
+      refreshHistory();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setDeleting(false);
+    }
+  }
+  async function undoDelete() {
+    if (!deleted) return;
+    setDeleting(true);
+    try {
+      await request(`/research/${deleted.id}`, { method: "POST" });
+      setDeleted(null);
+      refreshHistory();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setDeleting(false);
+    }
+  }
   const backendRunning =
     job?.status === "discovering" || job?.status === "analyzing";
   const running = backendRunning || localRunning;
@@ -241,6 +282,42 @@ export default function Research() {
   const ready = job && ["ready", "complete"].includes(job.status);
   return (
     <div className="research-workspace">
+      <div className="research-toolbar">
+        <p>
+          Research is saved in this browser workspace, so it stays after a
+          refresh.
+        </p>
+        {job && (
+          <>
+            <button
+              className="secondary"
+              onClick={reset}
+              disabled={running || submitting || deleting}
+            >
+              <Plus size={16} /> New research
+            </button>
+            <button
+              className="secondary"
+              onClick={() => removeResearch(job)}
+              disabled={running || submitting || deleting}
+            >
+              <Trash2 size={16} /> Delete research
+            </button>
+          </>
+        )}
+      </div>
+      {deleted && (
+        <div className="alert" role="status">
+          <span>“{deleted.name}” removed from your research.</span>{" "}
+          <button
+            className="secondary"
+            onClick={undoDelete}
+            disabled={deleting}
+          >
+            Undo
+          </button>
+        </div>
+      )}
       <section className="research-entry panel">
         <div className="research-intro">
           <span className="research-symbol">
@@ -510,7 +587,7 @@ export default function Research() {
               Public search results can be incomplete, stale, or refer to a
               namesake. At most eight search results are read alongside the
               submitted website. No sentiment percentage is calculated from web
-              pages. Research stays separate from the imported review dataset.
+              pages. Verify dates and relevance before drawing conclusions.
             </p>
           </details>
         </>
@@ -541,9 +618,9 @@ export default function Research() {
         </p>
         <p>
           Free hosting limits: six searches per browser per day, shared capacity
-          of forty searches daily, up to 2,000 imported reviews. Research and
-          imports are retained for 30 days. Workspaces belong to this browser;
-          clearing cookies starts a new workspace.
+          of forty searches daily. Research is retained for up to 30 days.
+          Workspaces belong to this browser; clearing cookies starts a new
+          workspace.
         </p>
       </details>
       {history.length > 0 && (
@@ -551,16 +628,26 @@ export default function Research() {
           <h2>Recent research</h2>
           <div>
             {history.map((h) => (
-              <button
-                key={h.id}
-                onClick={() => reopen(h.id)}
-                disabled={running || submitting}
-              >
-                <Globe size={17} />
-                <strong>{h.name}</strong>
-                <span>{h.status}</span>
-                <ArrowRight size={15} />
-              </button>
+              <div className="history-item" key={h.id}>
+                <button
+                  onClick={() => reopen(h.id)}
+                  disabled={running || submitting}
+                >
+                  <Globe size={17} />
+                  <strong>{h.name}</strong>
+                  <span>{h.status}</span>
+                  <ArrowRight size={15} />
+                </button>
+                <button
+                  className="history-delete"
+                  aria-label={`Delete ${h.name}`}
+                  title="Delete research"
+                  onClick={() => removeResearch(h)}
+                  disabled={running || submitting || deleting}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             ))}
           </div>
         </section>
