@@ -33,3 +33,25 @@ jobs:
         with:
           name: browser-test-results
           path: frontend/test-results
+
+  cloud:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: cloud/package-lock.json
+      - name: Install cloud dependencies
+        working-directory: cloud
+        run: npm ci
+      - name: Test cloud API and workspace isolation
+        working-directory: cloud
+        run: npm test
+      - name: Check cloud TypeScript
+        working-directory: cloud
+        run: npx tsc --noEmit
+      - name: Build cloud application
+        working-directory: cloud
+        run: npm run build

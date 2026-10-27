@@ -28,3 +28,12 @@ The CSV browser workflow uses the built frontend and a real FastAPI server with 
 The React suite also checks that a late review-brief response is discarded if the feedback scope changes while generation is in progress.
 
 Screenshots show the current dark interface. The GitHub Actions workflow repeats the automated checks on Linux; its remote result is separate from this local record.
+
+
+## Free public edition
+
+The additional cloud API suite has nine passing tests. TypeScript checks and the deployment build pass. Cloud tests use fresh SQLite databases and mocked public search responses; they do not spend API credits.
+
+A real browser test on the cloud-runtime preview searched for Todoist, read public pages, ran the quantized DistilBART model on a selected source, and persisted a source-linked on-device summary. No OpenAI key or paid model request was used. The same search and genuine browser inference also passed on the public production URL. Native Sites publication confirmed the live URL. See [the public AI result](public-ai.png).
+
+The public edition is implemented under `cloud/`; the original 39-check record above describes the local FastAPI implementation.

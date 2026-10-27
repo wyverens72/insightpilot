@@ -5,8 +5,8 @@
 1. Open **Web research** and paste a public product URL. Enter its exact name if the domain is ambiguous.
 2. Click **Find sources**. Show the actual progress state and the saved research entry.
 3. Explain the distinction between the company website, third-party material, a read page, and a search excerpt. Check source dates: a review from years ago may not describe the current product.
-4. Select relevant sources and build the local source digest. Explain honestly that synthesis requires an OpenAI key, configurable through **Enable AI synthesis**. Do not call the extractive digest an AI analysis.
-5. If a key is configured, opt in to AI search and synthesis. Show clickable citations and the explicit fallback if a provider request fails.
+4. Select relevant sources and build the local source digest. Explain that a source digest is extractive. Free model-generated summaries run on the visitor's device after the optional model download. Do not call an extractive digest an AI analysis.
+5. In the public edition, enable **Use free on-device AI** and choose **Run free AI summaries**. Explain the first model download and show a source-linked summary. The public edition has no paid API configuration.
 6. Reopen the research from history and export the Markdown report.
 
 URL research does not produce a representative sentiment score or add article text to the review database. Keep that distinction clear during the demo.
