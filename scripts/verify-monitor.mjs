@@ -1,6 +1,7 @@
 const base =
   "https://insightpilot-research.brightdrum2050.chatgpt.site/api/monitor";
 let cookie = "";
+const cookieJar = new Map();
 async function call(
   path,
   { method = "GET", body, status = 200, useCookie = true } = {},
@@ -15,8 +16,15 @@ async function call(
     redirect: "error",
     signal: AbortSignal.timeout(25000),
   });
-  const returnedCookie = response.headers.get("set-cookie");
-  if (useCookie && returnedCookie) cookie = returnedCookie.split(";")[0];
+  if (useCookie) {
+    for (const header of response.headers.getSetCookie()) {
+      const pair = header.split(";")[0];
+      const divider = pair.indexOf("=");
+      if (divider > 0)
+        cookieJar.set(pair.slice(0, divider), pair.slice(divider + 1));
+    }
+    cookie = [...cookieJar].map(([key, value]) => key + "=" + value).join("; ");
+  }
   const data = await response.json();
   if (response.status !== status)
     throw new Error(
@@ -27,6 +35,10 @@ async function call(
 const ids = [];
 try {
   await call("/session");
+  if (!cookieJar.has("ip_monitor"))
+    throw new Error(
+      "The hosted API did not establish the browser-preview cookie.",
+    );
   for (const profile of [
     {
       name: "Automated App Store verification",
@@ -89,7 +101,15 @@ try {
     "Production collection, review evidence, common comparison metrics, and isolated workspaces passed.",
   );
 } finally {
-  for (const id of ids) await call(`/businesses/${id}`, { method: "DELETE" });
+  for (const id of ids) {
+    try {
+      await call(`/businesses/${id}`, { method: "DELETE" });
+    } catch (error) {
+      console.error(
+        "Temporary monitor archive could not be confirmed: " + error.message,
+      );
+    }
+  }
   console.log(
     "Temporary verification monitors archived. No user browser or account workspace was modified.",
   );
