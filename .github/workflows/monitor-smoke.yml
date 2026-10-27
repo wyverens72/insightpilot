@@ -12,5 +12,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Check direct public provider availability
+        run: |
+          node --input-type=module -e 'for (const url of ["https://itunes.apple.com/us/rss/customerreviews/page=1/id=572688855/sortby=mostrecent/json", "https://api.steampowered.com/IUserReviewsService/GetAppReviews/v1/?input_json="+encodeURIComponent(JSON.stringify({appid:730,filter:1,num_per_page:5,languages:["english"],purchase_type:1}))]) { const r=await fetch(url,{redirect:"error",signal:AbortSignal.timeout(15000)}); console.log(new URL(url).hostname+": HTTP "+r.status); if(!r.ok)throw new Error("Direct public source unavailable"); await r.arrayBuffer(); }'
       - name: Verify real sources in a separate temporary workspace
         run: node scripts/verify-monitor.mjs
