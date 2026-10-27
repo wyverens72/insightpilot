@@ -198,7 +198,7 @@ export function extractPage(html: string) {
   if (text.length < 120) throw new Error("Too little readable text.");
   return { title, text };
 }
-async function robotsAllows(url: string) {
+export async function robotsAllows(url: string) {
   const origin = new URL(url).origin;
   try {
     const { html } = await readBounded(origin + "/robots.txt");

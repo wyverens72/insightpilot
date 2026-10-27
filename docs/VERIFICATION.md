@@ -1,41 +1,25 @@
 # Verification record
 
-Verified locally on October 27, 2026, on macOS with Python 3.9.6 and Node.js 25.9.0.
+## Business monitoring edition — October 27, 2026
 
-| Check | Result |
-| --- | --- |
-| Backend API and service tests | 29 passed |
-| React interaction tests | 8 passed |
-| Chromium workflows | 2 passed |
-| TypeScript and production build | Passed |
-| Python lint and formatting | Passed |
-| Desktop and mobile layout | Inspected; overflow checks passed |
+The cloud suite has 17 passing tests: ten retained research checks and seven business-monitoring checks. TypeScript and the Worker production build pass.
 
-## URL research
+Monitoring checks use fresh SQLite databases with every Drizzle migration and deterministic provider responses. They verify:
 
-The research API tests cover discovery, official versus third-party classification, readable pages versus excerpts, selected-source analysis, history, URL validation, private-network DNS answers, redirects to private hosts, robots restrictions, AI search payloads, citation validation, and provider fallback. Test keys and HTTP responses are synthetic; no paid provider request is made.
+- Account workspaces remain stable across cookie changes and isolate every business, source, review, and alert from other owners.
+- Incremental collection adds new entries, updates changed entries, avoids duplicates, keeps collection history, and creates source-linked complaint alerts only after baseline.
+- Weekly periods, undated feedback, unknown sentiment, rated-only averages, classified denominators, and multi-topic counts use consistent definitions.
+- Provider parsers accept individual review records and never expand aggregate ratings into invented reviews.
+- The scheduled writer rejects missing/invalid authorization, verifies Ed25519 signatures, rejects replay, respects pause/archive state, and records a cloud heartbeat.
+- Restricted/empty sources remain empty with explicit status.
+- Category consistency, source identity confirmation, archive restoration, and free workspace caps are enforced.
 
-The research browser test uses deterministic API fixtures to exercise the URL form, source selection, access labels, local report rendering, clickable citations, Markdown download, and mobile overflow. It does not claim to test live search availability.
+A real local browser check connected the Todoist US App Store feed, collected 50 actual written reviews, displayed weekly activity and source health, and rendered original review text with rating, date, author, and source links. This is a dated availability snapshot, not an all-platform coverage claim.
 
-A separate manual check used the running application and real public sources for Todoist. It discovered nine sources, read three pages, labeled the remaining sources as search excerpts, and generated a local digest from the three selected pages. This result is a snapshot, not a guarantee of coverage. One older publication appeared in the results, which is why the product explicitly asks users to verify source dates.
+The earlier optional on-device DistilBART inference was verified with real browser execution on both preview and the public site. Paid model requests are not used.
 
-Paid OpenAI synthesis and hosted web search remain covered by mocked contract tests, not a real paid request. The UI makes the key requirement and local fallback visible.
+## Original FastAPI edition
 
-## CSV analytics
+The retained local implementation previously passed 29 Python tests, eight React interaction tests, and two Chromium workflows. Its local build, TypeScript checks, Python lint/formatting, and mobile overflow checks passed. These checks describe the original implementation, not an assertion that Python serves the public application.
 
-The CSV browser workflow uses the built frontend and a real FastAPI server with an isolated SQLite database. It covers sample import, search, scoped local briefs, Markdown download, partial CSV validation, persistence after reload, and a 390-pixel mobile viewport.
-
-The React suite also checks that a late review-brief response is discarded if the feedback scope changes while generation is in progress.
-
-Screenshots show the current dark interface. The GitHub Actions workflow repeats the automated checks on Linux; its remote result is separate from this local record.
-
-
-## Free public edition
-
-The additional cloud API suite has ten passing tests. TypeScript checks and the deployment build pass. Cloud tests use fresh SQLite databases and mocked public search responses; they do not spend API credits.
-
-A real browser test on the cloud-runtime preview searched for Todoist, read public pages, ran the quantized DistilBART model on a selected source, and persisted a source-linked on-device summary. No OpenAI key or paid model request was used. The same search and genuine browser inference also passed on the public production URL. Native Sites publication confirmed the live URL. See [the public AI result](public-ai.png).
-
-The public edition is implemented under `cloud/`; the original 39-check record above describes the local FastAPI implementation.
-
-The public UI now focuses on URL research. A deletion test verifies browser ownership, disappearance from history and reload, and undo restoration.
+GitHub CI results are separate from local results. Live provider availability is checked manually; deterministic tests do not guarantee an upstream feed will always respond.

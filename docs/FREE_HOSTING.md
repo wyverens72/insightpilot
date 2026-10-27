@@ -1,23 +1,13 @@
-# Free public hosting
+# Free hosting and collection
 
-The public edition uses Sites, Cloudflare Workers, and a persistent D1 database. Its source lives in `cloud/`. The original local FastAPI version remains in `backend/` and `frontend/` for development and architecture comparison.
+The public application is hosted through Sites with Cloudflare Workers and a persistent D1 database. It does not proxy to a laptop.
 
-No paid OpenAI API key was created. The public edition rejects key configuration and runs its optional AI model on the visitor's device with Transformers.js. Search and the extractive digest work without a model download.
+The public GitHub repository runs an hourly collection workflow on standard hosted Linux runners. Sources are eligible every six hours; each run drains up to six batches of two sources. Actual timing can vary with GitHub scheduling, source failures, and the shared allowance. The most recent collector heartbeat appears in the dashboard footer.
 
-The browser downloads several hundred MB on first AI use. Model execution depends on available memory and browser support. Browser workspace records are scoped by a random secure cookie, stored server-side, and retained for up to 30 days. Clearing cookies starts a new workspace.
+A GitHub secret named `INSIGHTPILOT_SCHEDULER_KEY` holds the Ed25519 private key. `MONITOR_CRON_PUBLIC_KEY` in the Sites runtime contains only the public SPKI key. No private key is stored in source, browser code, workflow text, or the site runtime. Requests expire after five minutes and use single-use nonces.
 
-Free-use boundaries are six searches per browser per UTC day, forty across the deployment, 2,000 imported reviews per workspace, a shared bounded storage budget, and the hosting platform's availability and usage limits. The app does not buy additional capacity. When limits are reached, it reports that capacity is unavailable.
+`workflow_dispatch` permits an immediate operational check. An HTTP 200 response alone is not proof of reviews collected: inspect source history for fetched/new/updated counts and errors. The collector does not have account-dashboard access.
 
-Discovery is processed in bounded database-backed steps while the research page is open. Reopening a saved research resumes pending steps. No always-on laptop or Python process is required for the hosted site.
+Limits are one primary business and three competitors per workspace, three sources per business, 5,000 reviews per business, 40,000 reviews and 60 active businesses across the deployment, and 160 source checks per UTC day. The collector applies 90-day review, collection-history, and alert retention. Free hosting and provider availability are not an SLA.
 
-## Develop the cloud edition
-
-```bash
-cd cloud
-npm ci
-npm test
-npx tsc --noEmit
-npm run build
-```
-
-Sites provisioning and publication use `.openai/hosting.json`, the generated D1 migrations, and the maintained publishing helpers. No credentials belong in Git.
+AI is optional and runs in the browser after downloading model assets. No OpenAI key, paid API, subscription, custom domain, or hosting upgrade is needed for this edition.

@@ -1,62 +1,52 @@
-# InsightPilot · free public edition
+# InsightPilot — cloud application
 
-Research a product from one URL, check the evidence, and summarize selected sources with an open-source model running in your browser. No paid API key, subscription, or payment form is used by this edition.
+Business reputation monitoring with account workspaces, source collection, weekly comparisons, recurring complaint topics, competitors, and in-app alerts.
 
-## Use it
-
-1. Paste a public product URL into **Web research**. Add the exact product name if the domain is ambiguous.
-2. Choose **Find sources**. The app searches public web and news feeds, then tries to read up to eight results alongside the product website.
-3. Confirm the identity and choose relevant sources. Company claims, third-party material, read pages, and search excerpts are labeled separately.
-4. Choose the extractive source digest, or enable **Use free on-device AI** and run model-generated summaries.
-5. Check the linked evidence, export Markdown, and reopen research from the recent list.
-
-The AI model is [Xenova/distilbart-cnn-6-6](https://huggingface.co/Xenova/distilbart-cnn-6-6), distributed under Apache 2.0 and run with [Transformers.js](https://huggingface.co/docs/transformers.js/). The quantized model and runtime download directly to the visitor's device on first use. This is several hundred MB and may take a few minutes. The browser can cache model assets. Keep the page open during inference; a cancel button stops the worker. A current desktop browser with sufficient memory is recommended.
-
-Summaries are English and can omit context or hallucinate. Each source is summarized separately from an excerpt of up to 3,200 characters. Citations refer to the underlying selected pages; the app does not claim that a model has independently verified them. A web page is not automatically an individual customer review. No representative sentiment percentage or customer consensus is inferred from articles.
-
-## Review analytics
-
-**Overview**, **Review explorer**, and **Insight brief** retain the CSV workflow: UTF-8 imports, row validation, duplicate detection, rating-based sentiment with a keyword fallback, topic tags, filtered metrics, pagination, and local brief export. Try the 36 fictional sample reviews without uploading a file.
-
-The hosted workspace stores up to 2,000 reviews. Sentiment is a transparent rule, not an AI prediction. An optional rating maps 4–5 to positive, 3 to neutral, and 1–2 to negative. Topics use keyword sets and can overlap.
-
-## Architecture
-
-The original desktop implementation uses React, TypeScript, FastAPI, and SQLite. This deployed edition preserves the React interface and adapts the API to TypeScript in Cloudflare Workers, with SQLite-compatible Cloudflare D1 storage. This avoids an always-running Python process and an ephemeral database on a free server.
-
-Vinext provides the React application runtime and maintained Sites build integration. The browser AI worker is served as a static module. Its model runtime loads only after the visitor requests AI summaries, keeping large model binaries out of the server bundle.
-
-Research is stored between bounded processing steps. Each status poll can resume the next step; a database lease prevents duplicate processing across requests. Discovery pauses when nobody is polling and resumes when the research is reopened. Each step reads at most two sources, within the lifetime of a short Worker request.
-
-## Workspace privacy and retention
-
-Each browser receives a cryptographically random, HTTP-only, secure session cookie. Its hash scopes database reads and writes; research and imports are not shared across visitors. This is a browser workspace, not a cross-device account. Clearing cookies starts a new workspace.
-
-Research and imported reviews are retained for up to 30 days. Expired records are cleaned when a new search is started. There is no claim of a production compliance or backup service.
-
-## Free-use limits
-
-- Six searches per browser per UTC day.
-- Forty searches per day across this deployment.
-- Up to 2,000 reviews per browser workspace; CSV uploads up to 2 MB and 5,000 rows.
-- A bounded shared storage budget; writes stop when capacity is reached.
-- At most 750 KB per fetched page and 18,000 extracted characters per source.
-
-Public search feeds are best effort and may be unavailable, stale, or incomplete. Some websites block automated access or require JavaScript, login, or payment; those remain excerpts or unavailable sources. The reader honors the initial site's robots policy and does not bypass restrictions. Literal IP URLs and private host forms are rejected, redirects are revalidated, and outbound traffic uses the hosting platform's fetch boundary.
-
-Hosting remains subject to the Sites platform's availability and resource limits. No paid OpenAI key or hosting upgrade was created. The app does not purchase additional capacity automatically.
-
-## Development
+## Run locally
 
 ```bash
 npm ci
 npm test
 npx tsc --noEmit
 npm run build
+npm start
 ```
 
-The build generates the browser AI worker before creating the deployable artifact. Use `npm run dev` for the maintained local Vinext preview, or preview a built deployment with `npm start -- --port 8787`.
+The Worker uses persistent D1 storage. For a new local database, apply the SQL files under `drizzle/` in filename order with Wrangler D1 execute against the generated `dist/server/wrangler.json` configuration. Hosted Sites publication applies Drizzle migrations; do not edit applied files.
 
-The D1 schema is in `db/schema.ts`; generated migrations are in `drizzle/`. Apply pending local migrations using the commands in the Sites starter documentation. Sites applies hosted migrations at publication.
+## Account boundary
 
-The cloud API tests use a fresh SQLite database and cover workspace isolation, CSV validation, duplicate imports, sentiment metrics, URL validation, source parsing, resumable discovery, source selection, citations, browser-generated report persistence, and rejection of paid-key configuration. Live retrieval and browser model execution are verified separately; deterministic tests do not download models or spend API credits.
+Sign in with ChatGPT uses Sites-managed identity. The edge platform injects the site-scoped authenticated user ID; the API hashes it before storing workspace ownership. Every business, review, source, alert, and history read checks that owner. A random HttpOnly Secure SameSite=Lax cookie provides a separate browser preview. Signing in opens the account workspace; browser-preview data is not silently merged. Adding a business does not verify ownership of it.
+
+## Data sources
+
+- App Store: public Apple RSS, latest 50 written reviews for a specific storefront country. Availability and historical coverage are not guaranteed.
+- Steam: `IUserReviewsService/GetAppReviews/v1`, latest 100 English reviews, using the Recent enum and all purchase types. Recommendations are not converted into five-star ratings.
+- Public review pages: individual Schema.org Review records in JSON-LD, subject to robots.txt and access restrictions. Aggregate rating counts are never expanded into invented reviews.
+- RSS/Atom: published feedback entries. Unrated mentions do not contribute to star averages.
+
+Google Business Profile requires approved API access and authorized locations. Trustpilot, Yelp, Facebook, Google Play, and similar restricted platforms are not connected. Their content is not bypassed or inferred from search snippets. Source discovery provides candidate links for the user to verify; it does not guarantee identity or import articles as customer reviews.
+
+## Collection and history
+
+Sources become eligible every six hours. A free GitHub Actions workflow wakes hourly and drains up to six bounded batches of two sources; timing can be delayed by GitHub or shared capacity. Manual checks have a 15-minute cooldown. A lease prevents overlapping collection. Stable source review IDs deduplicate entries; changed text or ratings update existing records. Review upserts use D1 batches to stay within free invocation limits.
+
+The first successful run establishes a baseline. Subsequent runs with newly collected reviews evaluate alert thresholds. Collection outcomes and errors remain visible even if a source becomes unavailable. Pausing a source or archiving a business stops future checks. Archiving can be undone.
+
+The scheduler signs short-lived timestamped requests with Ed25519. Its private key lives only in GitHub Secrets as `INSIGHTPILOT_SCHEDULER_KEY`; Sites stores only the public SPKI verification key in `MONITOR_CRON_PUBLIC_KEY`. Signed requests expire after five minutes and nonces prevent replay. The scheduler has no visitor identity and cannot read account dashboards.
+
+## Analytics
+
+The last seven days and preceding seven days use publication timestamps and rolling UTC windows. Undated and future entries are excluded. Averages use available star ratings only; sentiment shares use classified entries, with the denominator shown. Topics and unrated text sentiment use explicit keyword rules, not a claim of full language understanding. Rating-derived sentiment takes priority; unknown text is retained as unknown. One review may mention several topics.
+
+Topic patterns link to supporting original reviews. Complaint alerts require both a minimum negative count and a multiplier over the prior week, with a floor of one for an empty baseline. One alert per business/topic/UTC day is saved in the notification inbox. Email and push delivery are not connected.
+
+Optional DistilBART summaries run in a browser worker through Transformers.js. The first use downloads several hundred MB from Hugging Face/CDN. Summaries use bounded excerpts from up to eight reviews on the current page and can omit context; statistics never depend on generated text. There is no paid AI API.
+
+## Free limits
+
+One main business and three competitors per workspace, three sources per business, 5,000 reviews per business, 40,000 across the deployment, 60 active businesses across the deployment, and 160 source checks per UTC day. Free deployment capacity is shared; these are portfolio-scale bounds, not an unlimited service promise. Reviews, collection history, and alerts are retained for up to 90 days by the collector. First-seen timestamps remain separate from publication timestamps.
+
+## Tests
+
+`npm test` runs both the retained research suite and the monitoring suite against fresh SQLite databases and source fixtures. It covers ownership, account continuity, incremental ingestion, deduplication, updates, weekly arithmetic, alert evidence, signed scheduler access/replay, pause/archive behavior, source failures, caps, and parser safety.

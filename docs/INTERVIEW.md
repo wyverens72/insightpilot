@@ -1,37 +1,28 @@
-# Interview walkthrough · October 28
+# Interview walkthrough
 
-## Start with the URL research workflow
+InsightPilot helps business owners track customer feedback over time rather than request a one-off summary. Its value is persistent collection, deduplication, visible source health, comparable weekly measures, and evidence-linked complaint alerts.
 
-1. Open **Web research** and paste a public product URL. Enter its exact name if the domain is ambiguous.
-2. Click **Find sources**. Show the actual progress state and the saved research entry.
-3. Explain the distinction between the company website, third-party material, a read page, and a search excerpt. Check source dates: a review from years ago may not describe the current product.
-4. Select relevant sources and build the local source digest. Explain that a source digest is extractive. Free model-generated summaries run on the visitor's device after the optional model download. Do not call an extractive digest an AI analysis.
-5. In the public edition, enable **Use free on-device AI** and choose **Run free AI summaries**. Explain the first model download and show a source-linked summary. The public edition has no paid API configuration.
-6. Reopen the research from history and export the Markdown report.
+## Demonstration
 
-URL research does not produce a representative sentiment score or add article text to the review database. Keep that distinction clear during the demo.
+1. Sign in or open a browser preview. Explain the account boundary.
+2. Add a business and its exact review profile. A public App Store profile is a useful live example because the feed requires no paid key.
+3. Open Sources. Show the latest collection result and collection history.
+4. Open Overview. Explain the sample size, seven-day comparison, rating denominator, and gaps in historical coverage.
+5. Open Review inbox. Filter negative feedback or a recurring topic and follow its original source.
+6. Add a same-category competitor and compare the same definitions. Explain why different sources or storefront countries are a caveat.
+7. Open Alerts. Show threshold controls and explain baseline, deduplication, and linked evidence. Do not invent a live spike just to populate the screen.
+8. Show the scheduled collector workflow and its actual verified run. It works when the laptop and website are closed.
 
-## A three-minute CSV demo
+## Technical choices
 
-1. Open the dashboard and load the sample workspace. Explain that the 36 reviews are fictional and the analytics are computed by the backend.
-2. Point out the rating average, sentiment distribution, monthly volume, and topics. Explain that a review can mention several topics.
-3. Open Review explorer and search for `crashes`. Show the original review, source, rating, and topic tags.
-4. Open Insight brief while the search is active. Generate a local brief and show that its scope is one review and that it cites the original record.
-5. Export the Markdown brief. Clear the search, then demonstrate a CSV upload using the downloadable template.
-6. Reload the page to show that imported reviews persist in SQLite. Finish with the architecture and automated checks in the repository.
+The public edition uses React and TypeScript, an edge API on Cloudflare Workers, and D1 persistence. Sites manages account sign-in. A separate GitHub job signs limited collection requests with Ed25519. Bounded D1 batches and explicit caps keep it appropriate for a free deployment.
 
-## Explain the engineering decisions
+The original implementation used React, FastAPI, and local SQLite. The Python version remains in the repository, while the deployed service was ported to TypeScript to avoid a running Python server on a paid host.
 
-**Why this project?** It covers a complete product loop: ingest imperfect data, persist it, analyze it, expose an API, build an interactive interface, and turn evidence into a useful output.
+## Product judgment
 
-**Why SQLite?** A local demo does not need another service. Transactions and a database uniqueness constraint provide real persistence and duplicate protection. PostgreSQL would be a sensible next step for shared use.
+The initial URL-to-summary idea duplicated a common chat task. The revised product targets ongoing operational work: a manager should return to an updated evidence set, see changes, and investigate a complaint without reconstructing last week's context.
 
-**Why rules before AI?** The dashboard should be reproducible and available without a paid provider. Rating-based sentiment and keyword topics are easy to explain and test. The brief generator adds an optional AI layer with explicit data-sharing controls and a visible fallback.
+Source access is the main product constraint. The interface supports different business categories, but Google, Trustpilot, Yelp, and other restricted platforms need authorized integrations. This version does not claim to collect all internet reviews. Its statistics are based on individual collected records and reveal their denominator.
 
-**How is quality checked?** API tests use fresh temporary databases. React tests check interactions and error states. A browser test exercises the built frontend against the real API. TypeScript checks and a production build catch integration errors.
-
-**What are the limitations?** Keyword rules miss context, the sample is not representative, and AI suggestions require verification. The app has no authentication and is intended for a local single-user demo. Analytics and review pagination should move into SQL for substantially larger datasets.
-
-## Describe your contribution accurately
-
-The implementation was built with AI assistance. Before the interview, run it yourself, read the import flow and brief generation code, and practice explaining the tradeoffs. Describe what you understand, verified, and would improve; avoid presenting generated code as evidence of experience you do not yet have.
+Potential next steps are approved business-platform integrations, team membership, owner authorization, email/push delivery, and language-specific topic validation. These are not presented as already shipped.

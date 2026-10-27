@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./monitor.css";
 export const metadata: Metadata = {
-  title: "InsightPilot · Customer intelligence",
+  title: "InsightPilot · Business reputation monitoring",
   description:
-    "Free public product research with source citations and on-device AI summaries.",
+    "Track business reviews, weekly changes, recurring issues, competitors, and complaint alerts with linked evidence.",
   icons: { icon: "/favicon.svg" },
 };
 export default function RootLayout({
