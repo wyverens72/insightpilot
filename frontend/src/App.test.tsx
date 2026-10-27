@@ -55,6 +55,7 @@ beforeEach(() => {
 });
 test("loads persisted analytics and opens review evidence", async () => {
   render(<App />);
+  fireEvent.click(screen.getByRole("button", { name: "Overview" }));
   expect(await screen.findByLabelText("Key metrics")).toHaveTextContent("50%");
   fireEvent.click(screen.getByRole("button", { name: /Review explorer/ }));
   expect(
@@ -72,6 +73,7 @@ test("loads persisted analytics and opens review evidence", async () => {
 });
 test("generates a labeled local brief without an API key", async () => {
   render(<App />);
+  fireEvent.click(screen.getByRole("button", { name: "Overview" }));
   await screen.findByLabelText("Key metrics");
   fireEvent.click(screen.getByRole("button", { name: "Insight brief" }));
   expect(screen.getByRole("checkbox")).toBeDisabled();
@@ -90,6 +92,7 @@ test("shows a recoverable API error", async () => {
     vi.fn().mockRejectedValue(new Error("API unavailable")),
   );
   render(<App />);
+  fireEvent.click(screen.getByRole("button", { name: "Overview" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("API unavailable");
   expect(
     screen.getByRole("button", { name: "Retry connection" }),
@@ -97,6 +100,7 @@ test("shows a recoverable API error", async () => {
 });
 test("opens an accessible import dialog with a format guide", async () => {
   render(<App />);
+  fireEvent.click(screen.getByRole("button", { name: "Overview" }));
   await screen.findByLabelText("Key metrics");
   fireEvent.click(screen.getByRole("button", { name: "Import reviews" }));
   const modal = screen.getByRole("dialog");
@@ -120,6 +124,7 @@ test("discards a late brief after the feedback scope changes", async () => {
     }),
   );
   render(<App />);
+  fireEvent.click(screen.getByRole("button", { name: "Overview" }));
   await screen.findByLabelText("Key metrics");
   fireEvent.click(screen.getByRole("button", { name: "Insight brief" }));
   fireEvent.click(screen.getByRole("button", { name: "Generate brief" }));

@@ -53,8 +53,8 @@ def local_brief(
     }
 
 
-def generate_brief(reviews):
-    key = os.getenv("OPENAI_API_KEY")
+def generate_brief(reviews, key=None):
+    key = key or os.getenv("OPENAI_API_KEY")
     if not key:
         return local_brief(reviews)
     sample = [

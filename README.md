@@ -2,9 +2,9 @@
 
 **Customer feedback, clear product priorities.**
 
-InsightPilot turns a CSV of customer reviews into an interactive dashboard and an evidence-based product research brief. It connects a React and TypeScript interface to a FastAPI backend and SQLite storage, with an optional OpenAI integration. The complete workflow runs locally without an account or API key.
+InsightPilot starts with a product URL, finds public sources about that product, and turns selected evidence into a research brief with clickable citations. It also supports CSV review imports with a dashboard, search, and sentiment analytics. React and TypeScript power the interface; FastAPI handles research and analysis; SQLite preserves reviews and research history.
 
-![InsightPilot dashboard](docs/dashboard.png)
+![InsightPilot web research](docs/research.png)
 
 The interface uses a graphite canvas, horizontal workspace navigation, and distinct lime, cobalt, terracotta, and amber accents. The responsive layout keeps the same review workflow available on desktop and mobile.
 
@@ -17,11 +17,33 @@ You need Python 3.9+ and Node.js 22.12+ (Node 24 LTS is also suitable). From the
 ./scripts/start.sh
 ```
 
-Open [InsightPilot](http://127.0.0.1:8000). Choose **Explore sample workspace** to load 36 fictional reviews, or **Import reviews** to use your own CSV. The setup script installs dependencies and builds the frontend. The start script serves the built app and API together. Stop it with `Control-C`.
+Open [InsightPilot](http://127.0.0.1:8000). Paste a product URL into **Web research**, optionally enter its exact name, and choose **Find sources**. Confirm the identity, select relevant evidence, and build a source digest or AI brief. To explore structured review analytics, open **Overview** and choose **Explore sample workspace**, or import your own CSV. The setup script installs dependencies and builds the frontend. The start script serves the built app and API together. Stop it with `Control-C`.
 
-If port 8000 is occupied, run `PORT=8002 ./scripts/start.sh` and open port 8002 instead. The dashboard, import, review explorer, and local brief all work without network access after installation. Web fonts fall back to system fonts when offline.
+If port 8000 is occupied, run `PORT=8002 ./scripts/start.sh` and open port 8002 instead. Web research needs an internet connection. The CSV dashboard, import, review explorer, and local review brief work offline after installation. Web fonts fall back to system fonts when offline.
 
-## What you can do
+## Research a product from one URL
+
+1. Enter a public website URL and, optionally, the exact product name. Without a name, the domain provides an initial identity guess.
+2. Discover sources with public web and news search. When a key is configured and AI search is enabled, the OpenAI Responses API's hosted web search discovers candidates instead, with public search as a fallback.
+3. Inspect up to eight discovered results plus the submitted website. Each source is labeled **Page text read**, **Search excerpt only**, or **Unavailable**. Company pages are distinguished from third-party sources.
+4. Confirm the product name and select sources. Namesakes and unrelated results can be excluded. Readable sources are selected by default; excerpts can be included deliberately.
+5. Build a local extractive digest, or opt in to AI synthesis. Reports cite the selected source URLs and can be exported as Markdown. Recent research is saved in SQLite and can be reopened.
+
+The research workflow does not convert articles into fictional customer reviews or invent a sentiment percentage. No web research data is added to the CSV review dataset. A third-party article is not automatically an individual review, and a source's age matters when interpreting its claims.
+
+### Connect AI without editing a file
+
+Expand **Enable AI synthesis** and enter an OpenAI API key. It stays in backend memory until server restart, rather than in browser storage or SQLite. Saving a key does not validate its provider permissions; the first AI request does. Alternatively, configure `.env` as described below.
+
+Enable **AI-assisted web search and synthesis** to use hosted search during discovery. Before building a brief, **Use AI synthesis** controls whether selected source text is sent to OpenAI. Provider charges may apply. Without a key, real public discovery and source collection remain available, while the output is explicitly labeled an extractive digest. An AI failure produces a visible local fallback; it does not masquerade as a successful AI result.
+
+### Retrieval boundaries
+
+Only public HTTP(S) pages are fetched. The reader rejects private, loopback, and link-local addresses, validates every redirect, checks DNS answers, and connects to the validated IP while preserving TLS hostname verification. User-submitted URL queries are removed before search; functional query parameters on discovered source links are retained while common tracking and credential parameters are stripped.
+
+Reading respects the initial site's robots policy, stops at access restrictions, and does not bypass login, CAPTCHA, or paywalls. Each response is capped at 750 KB and extracted text at 18,000 characters. There is no JavaScript renderer; some pages therefore remain search excerpts. Public search can be unavailable, stale, or incomplete. At most two research jobs run at a time, with four concurrent source readers per discovery. Jobs interrupted by a restart are marked failed and can be rerun.
+
+## What you can do with a review dataset
 
 - **Import reviews:** validate UTF-8 CSV files, report rejected rows, and skip exact duplicates. Valid rows are committed together in one transaction.
 - **Explore the dashboard:** track review volume, average rating, sentiment, recurring topics, and monthly trends.
@@ -64,7 +86,7 @@ Set `OPENAI_API_KEY` in `.env`, optionally change `OPENAI_MODEL`, then restart t
 
 In **Insight brief**, select **Use OpenAI**, then generate. This sends aggregate metrics and up to 60 recent reviews in the current scope to the [OpenAI Responses API](https://platform.openai.com/docs/api-reference/responses/create). The request sets `store: false`. Review text is treated as untrusted input; instructions require evidence citations and prohibit invented data. An unavailable service, invalid key, incomplete response, or unsupported model produces a clearly labeled local fallback. The provider request times out after 35 seconds.
 
-Local mode is the default even when a key exists. Use only feedback you have permission to share. AI output should be checked against the original reviews; prompting does not guarantee factual accuracy or complete protection against prompt injection. The live paid provider path is covered with mocked contract tests, not a real API call in the automated suite.
+Local mode is the default even when a key exists. Use only feedback you have permission to share. AI output should be checked against the original reviews; prompting does not guarantee factual accuracy or complete protection against prompt injection. Paid synthesis and hosted search are covered with mocked provider contract tests; the automated suite does not spend API credits. The implementation follows the [official web search documentation](https://developers.openai.com/api/docs/guides/tools-web-search).
 
 ## How analysis works
 
@@ -77,6 +99,10 @@ These are deliberately simple, inspectable rules. They can misread negation, sar
 ```mermaid
 flowchart LR
     UI[React + TypeScript] -->|same-origin JSON API| API[FastAPI]
+    URL[Product URL] --> API
+    API --> Search[Public search or OpenAI web search]
+    Search --> Reader[Bounded public-page reader]
+    Reader --> API
     CSV[Review CSV] -->|bounded upload + validation| API
     API --> DB[(SQLite)]
     API --> Rules[Sentiment + topic rules]
@@ -88,7 +114,7 @@ flowchart LR
 The backend uses parameterized SQL and opens a connection per operation. A unique fingerprint enforces duplicate detection at the database level. File parsing completes before the import transaction begins, so a file-level failure cannot leave a partial import. SQLite keeps this small, single-workspace app easy to run and inspect.
 
 ```text
-backend/app/       API, CSV ingestion, persistence, analytics, briefs
+backend/app/       API, public research, page reader, CSV ingestion, analytics
 backend/tests/     Isolated API and service tests
 frontend/src/      React views, typed API client, component tests
 frontend/e2e/      Real browser workflow
@@ -126,11 +152,11 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-The browser test starts a separate backend on port 8001 with a fresh temporary database for each run. It imports samples, searches evidence, generates and downloads a brief, validates a partially invalid upload, checks persistence after reload, and checks mobile overflow. It never uses the normal app database. GitHub Actions repeats these checks on Linux.
+The browser suite starts a separate backend on port 8001 with a fresh temporary database for each run. The research UI test uses deterministic source fixtures; backend research tests mock external network responses, and live retrieval is checked separately. The CSV browser test uses the real API. It imports samples, searches evidence, generates and downloads a brief, validates a partially invalid upload, checks persistence after reload, and checks mobile overflow. It never uses the normal app database. GitHub Actions repeats these checks on Linux.
 
 ## Scope and next steps
 
-This is a functioning portfolio MVP for local use: one workspace, no login, no multi-user isolation, and no background job queue. Keep the server bound to localhost. Public hosting would need authentication, upload/request limits at the proxy, rate limiting for paid generation, and an explicit retention policy.
+This is a functioning portfolio MVP for local use: one workspace, no login, no multi-user isolation, and research jobs run in process rather than through a durable external queue. Keep the server bound to localhost. Public hosting would need authentication, upload/request limits at the proxy, rate limiting and a spending budget for paid requests, encrypted key management, a durable job queue, and an explicit retention policy.
 
 Useful next iterations would be saved import batches with deletion, an annotated evaluation set for sentiment quality, PostgreSQL for concurrent users, and cached or asynchronous AI jobs. The current review and analytics endpoints load the workspace into memory; the bounded import size is not a total database quota. Larger datasets would benefit from SQL aggregation and database-level pagination.
 
