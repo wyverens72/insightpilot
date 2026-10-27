@@ -273,9 +273,7 @@ export default function Monitor() {
   useEffect(() => {
     if (!data) return;
     const pending = data.businesses.some((b) =>
-      b.sources.some(
-        (s) => s.state === "pending" || s.lease_until > Date.now(),
-      ),
+      b.sources.some((s) => s.lease_until > Date.now()),
     );
     const timer = setInterval(
       () => {
@@ -356,7 +354,7 @@ export default function Monitor() {
       setTab("sources");
       await refresh();
       setNotice(
-        "Business added. Its primary source is being checked. Connect review profiles below for wider coverage.",
+        "Business added. Its primary source is queued for the hourly cloud collector. Connect review profiles below for wider coverage.",
       );
     });
   }
@@ -380,7 +378,9 @@ export default function Monitor() {
       setConfirmed(false);
       setSourceLabel("");
       await refresh();
-      setNotice("Source connected. The first collection is running.");
+      setNotice(
+        "Source connected. The first collection is queued for the hourly cloud collector.",
+      );
     });
   }
   async function findProfiles(competitors = false) {
@@ -1431,7 +1431,7 @@ export default function Monitor() {
                                           "POST",
                                         );
                                         setNotice(
-                                          "Collection queued. The source status will update automatically.",
+                                          "Collection queued for the next hourly cloud run. The source status will update automatically.",
                                         );
                                         await refresh();
                                       })

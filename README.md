@@ -10,7 +10,7 @@ InsightPilot keeps customer feedback, recurring complaints, weekly changes, and 
 
 1. Create a workspace with Sign in with ChatGPT, or try a separate browser preview.
 2. Add the business name, website, category, and location. The same workspace supports shops, cafés, salons, services, software, games, and other businesses.
-3. Connect and confirm its review profiles. The primary website is checked automatically; public profile search can help find additional sources.
+3. Connect and confirm its review profiles. The primary website is queued automatically for the next hourly collector; public profile search can help find additional sources.
 4. Follow weekly review activity, star ratings, recurring complaint topics, and original source links.
 5. Add up to three comparable businesses in the same category. Compare the same time windows and topic definitions, with source differences visible.
 6. Set a complaint-volume threshold. Later collection runs save matching notifications in the alert inbox.

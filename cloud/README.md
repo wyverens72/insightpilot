@@ -33,7 +33,7 @@ Sources become eligible every six hours. A free GitHub Actions workflow wakes ho
 
 The first successful run establishes a baseline. Subsequent runs with newly collected reviews evaluate alert thresholds. Collection outcomes and errors remain visible even if a source becomes unavailable. Pausing a source or archiving a business stops future checks. Archiving can be undone.
 
-The scheduler signs short-lived timestamped requests with Ed25519. Its private key lives only in GitHub Secrets as `INSIGHTPILOT_SCHEDULER_KEY`; Sites stores only the public SPKI verification key in `MONITOR_CRON_PUBLIC_KEY`. Signed requests expire after five minutes and nonces prevent replay. The scheduler has no visitor identity and cannot read account dashboards.
+The scheduler signs short-lived timestamped requests with Ed25519. Its private key lives only in GitHub Secrets as `INSIGHTPILOT_SCHEDULER_KEY`; Sites stores only the public SPKI verification key in `MONITOR_CRON_PUBLIC_KEY`. Signed requests expire after five minutes and nonces prevent replay. The scheduler can claim a bounded list of due source URLs and submit results for its expiring leases. It has no visitor identity and cannot read account dashboards. App Store and Steam are read directly by the GitHub runner from fixed public provider hosts; public pages and RSS are read by the edge Worker. Every new connection waits for the next hourly collector run.
 
 ## Analytics
 
@@ -50,3 +50,5 @@ One main business and three competitors per workspace, three sources per busines
 ## Tests
 
 `npm test` runs both the retained research suite and the monitoring suite against fresh SQLite databases and source fixtures. It covers ownership, account continuity, incremental ingestion, deduplication, updates, weekly arithmetic, alert evidence, signed scheduler access/replay, pause/archive behavior, source failures, caps, and parser safety.
+
+New connections and manual refreshes are queued for the next hourly cloud task rather than promising an immediate result. The direct provider collector is restricted to the fixed Apple and Steam domains; arbitrary user-submitted domains stay on the edge fetch path and are not fetched from the GitHub runner.

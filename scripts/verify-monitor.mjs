@@ -1,3 +1,4 @@
+import { collectBatches } from "./collect-reviews.mjs";
 const base =
   "https://insightpilot-research.brightdrum2050.chatgpt.site/api/monitor";
 let cookie = "";
@@ -62,6 +63,7 @@ try {
       },
     });
     ids.push(business.id);
+    await collectBatches(6);
     let item;
     for (let attempt = 0; attempt < 25; attempt++) {
       const data = await call("/dashboard");

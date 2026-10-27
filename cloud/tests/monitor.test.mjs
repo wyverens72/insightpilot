@@ -81,8 +81,12 @@ function fixture() {
     db,
     sqlite,
     env,
-    signed() {
-      const body = { timestamp: Date.now(), nonce: crypto.randomUUID() };
+    signed(payload = {}) {
+      const body = {
+        timestamp: Date.now(),
+        nonce: crypto.randomUUID(),
+        ...payload,
+      };
       return {
         body,
         user: null,
@@ -175,6 +179,9 @@ async function business(f, user = "alice", name = "Example shop") {
   });
   assert.equal(r.status, 201);
   await f.flush();
+  const d = await f.call("/dashboard", { user });
+  const b = d.value.businesses.find((b) => b.id === r.value.id);
+  for (const source of b.sources) await syncSource(f.db, source.id, true);
   return r.value.id;
 }
 test("account workspaces survive cookie changes and protect every owned resource", async () => {
@@ -468,11 +475,39 @@ test("scheduled writer requires its own credential, respects pause/archive, and 
       (await f.call(`/businesses/${id}/restore`, { body: {} })).status,
       200,
     );
-    const signed = f.signed();
+    const signed = f.signed({ action: "claim" });
     const tick = await f.call("/tick", signed);
     assert.equal((await f.call("/tick", signed)).value.replayed, true);
     assert.equal(tick.status, 200);
-    assert.equal(tick.value.checked, 1);
+    assert.equal(tick.value.jobs.length, 1);
+    const job = tick.value.jobs[0];
+    const result = await f.call(
+      "/tick",
+      f.signed({
+        action: "complete",
+        source_id: job.id,
+        lease: job.lease,
+        items: [],
+        error: "",
+      }),
+    );
+    assert.equal(result.status, 200);
+    assert.equal(result.value.state, "empty");
+    const stale = await f.call(
+      "/tick",
+      f.signed({
+        action: "complete",
+        source_id: job.id,
+        lease: job.lease,
+        items: [],
+      }),
+    );
+    assert.equal(stale.status, 409);
+    const expired = await f.call(
+      "/tick",
+      f.signed({ action: "claim", timestamp: Date.now() - 3600000 }),
+    );
+    assert.equal(expired.status, 401);
     assert.ok((await f.call("/dashboard")).value.scheduler.last_run);
   } finally {
     globalThis.fetch = originalFetch;

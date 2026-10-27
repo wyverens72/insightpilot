@@ -10,11 +10,11 @@ Sites establishes visitor identity through Sign in with ChatGPT. The API hashes 
 
 ## Collection path
 
-Adding a business creates a primary source when its URL is supported. A bounded background task reads the source immediately. Additional profiles require user confirmation. Provider adapters normalize real entries and preserve stable external IDs, original links, ratings, dates, text, and author labels.
+Adding a business creates a primary source when its URL is supported. The first collection is queued for the next hourly cloud task. Additional profiles require user confirmation. Provider adapters normalize real entries and preserve stable external IDs, original links, ratings, dates, text, and author labels.
 
 A source lease prevents concurrent collection. D1 batches write new or changed records, with unchanged records skipped. Per-source history records fetched, added, and updated counts and failures. Empty feeds and access restrictions remain visible. A 15-minute statistics cache reduces repeated dashboard scans and is invalidated by collection.
 
-The GitHub workflow `monitor.yml` wakes hourly. `scripts/collect-reviews.mjs` signs timestamped, nonce-protected requests with an Ed25519 private key held in GitHub Secrets. The public site's writer verifies the signature against its runtime public key. Each request collects at most two due sources; one workflow drains at most six batches. Sources become eligible every six hours, subject to the shared allowance and provider availability. The writer supplies no visitor identity and cannot read another user's dashboard.
+The GitHub workflow `monitor.yml` wakes hourly. `scripts/collect-reviews.mjs` signs timestamped, nonce-protected requests with an Ed25519 private key held in GitHub Secrets. The public site's writer verifies the signature against its runtime public key. Each request collects at most two due sources; one workflow drains at most six batches. Sources become eligible every six hours, subject to the shared allowance and provider availability. The signed queue exposes only bounded source configuration to the collector. App Store and Steam are read directly from fixed public provider hosts by the GitHub job; public pages and RSS are read by the edge Worker. The writer supplies no visitor identity and cannot read account dashboards.
 
 ## Analysis path
 

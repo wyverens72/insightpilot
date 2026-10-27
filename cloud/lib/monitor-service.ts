@@ -5,6 +5,7 @@ import {
   discoverProfiles,
   discoverCompetitors,
   type SourceKind,
+  type CollectedReview,
 } from "./monitor-sources";
 import { publicURL } from "./research";
 import {
@@ -51,7 +52,7 @@ async function run(db: DB, sql: string, ...args: any[]) {
     .bind(...args)
     .run();
 }
-async function json(request: Request) {
+async function json(request: Request, maxBytes = 16000) {
   const reader = request.body?.getReader();
   if (!reader) return {};
   let total = 0;
@@ -61,7 +62,7 @@ async function json(request: Request) {
       const { value, done } = await reader.read();
       if (done) break;
       total += value.length;
-      if (total > 16000) throw new Problem(413, "The form is too large.");
+      if (total > maxBytes) throw new Problem(413, "The form is too large.");
       chunks.push(value);
     }
   } finally {
@@ -119,7 +120,12 @@ async function tickQuota(db: DB) {
       "The shared free collection allowance is used for today. Saved reviews remain available.",
     );
 }
-export async function syncSource(db: DB, id: string, force = false) {
+export async function syncSource(
+  db: DB,
+  id: string,
+  force = false,
+  delivered?: { items: CollectedReview[]; edge?: boolean; error?: string; lease: number },
+) {
   const source = await one(
     db,
     "SELECT s.* FROM monitor_sources s JOIN monitor_businesses b ON b.id=s.business_id WHERE s.id=? AND s.enabled=1 AND b.archived=0",
@@ -128,14 +134,22 @@ export async function syncSource(db: DB, id: string, force = false) {
   if (!source) return { skipped: true };
   if (!force && Date.parse(source.next_check) > Date.now())
     return { skipped: true };
-  const lock = await run(
-    db,
-    "UPDATE monitor_sources SET lease_until=? WHERE id=? AND lease_until<?",
-    Date.now() + 120000,
-    id,
-    Date.now(),
-  );
-  if (!lock.meta.changes) return { skipped: true };
+  if (delivered) {
+    if (
+      source.lease_until !== delivered.lease ||
+      source.lease_until < Date.now()
+    )
+      throw new Problem(409, "The collection lease has expired.");
+  } else {
+    const lock = await run(
+      db,
+      "UPDATE monitor_sources SET lease_until=? WHERE id=? AND lease_until<?",
+      Date.now() + 120000,
+      id,
+      Date.now(),
+    );
+    if (!lock.meta.changes) return { skipped: true };
+  }
   const started = iso();
   let added = 0,
     updated = 0,
@@ -144,10 +158,14 @@ export async function syncSource(db: DB, id: string, force = false) {
     note = "";
   try {
     await tickQuota(db);
-    const incoming = await collectReviews({
-      kind: source.kind as SourceKind,
-      url: source.url,
-    });
+    if (delivered?.error) throw new Error(delivered.error);
+    const incoming =
+      delivered && !delivered.edge
+        ? delivered.items
+        : await collectReviews({
+            kind: source.kind as SourceKind,
+            url: source.url,
+          });
     fetched = incoming.length;
     const total = await one(
       db,
@@ -329,6 +347,54 @@ export async function runDueSources(db: DB) {
   );
   return { checked: results.length, remaining_due: Number(pending.n), results };
 }
+export async function claimDueSources(db: DB) {
+  const cutoff = new Date(Date.now() - 90 * 86400000).toISOString();
+  await db.batch([
+    db.prepare("DELETE FROM monitor_reviews WHERE first_seen<?").bind(cutoff),
+    db.prepare("DELETE FROM monitor_runs WHERE started<?").bind(cutoff),
+    db.prepare("DELETE FROM monitor_alerts WHERE created<?").bind(cutoff),
+    db
+      .prepare("DELETE FROM monitor_state WHERE id LIKE 'nonce:%' AND value<?")
+      .bind(new Date(Date.now() - 86400000).toISOString()),
+  ]);
+  const quota = await one(
+    db,
+    "SELECT count FROM daily_quotas WHERE id=?",
+    "monitor:" + iso().slice(0, 10),
+  );
+  if (quota?.count >= 160)
+    return { jobs: [], remaining_due: 0, capacity_reached: true };
+  const candidates = await all(
+    db,
+    "SELECT s.id,s.kind,s.url FROM monitor_sources s JOIN monitor_businesses b ON b.id=s.business_id WHERE s.enabled=1 AND b.archived=0 AND s.next_check<=? AND s.lease_until<? ORDER BY s.next_check LIMIT 2",
+    iso(),
+    Date.now(),
+  );
+  const jobs = [];
+  for (const s of candidates) {
+    const lease = Date.now() + 120000;
+    const changed = await run(
+      db,
+      "UPDATE monitor_sources SET lease_until=?,state='pending',note='Cloud collection in progress.' WHERE id=? AND lease_until<?",
+      lease,
+      s.id,
+      Date.now(),
+    );
+    if (changed.meta.changes) jobs.push({ ...s, lease });
+  }
+  const pending = await one(
+    db,
+    "SELECT COUNT(*) AS n FROM monitor_sources s JOIN monitor_businesses b ON b.id=s.business_id WHERE s.enabled=1 AND b.archived=0 AND s.next_check<=? AND s.lease_until<?",
+    iso(),
+    Date.now(),
+  );
+  await run(
+    db,
+    "INSERT INTO monitor_state (id,value) VALUES ('scheduler',?) ON CONFLICT(id) DO UPDATE SET value=excluded.value",
+    JSON.stringify({ last_run: iso(), checked: jobs.length }),
+  );
+  return { jobs, remaining_due: Number(pending.n) };
+}
 export async function handleMonitor(
   request: Request,
   env: Cloudflare.Env,
@@ -363,7 +429,7 @@ export async function handleMonitor(
       const signature = request.headers.get("x-monitor-signature") || "";
       if (!env.MONITOR_CRON_PUBLIC_KEY || !signature || signature.length > 150)
         throw new Problem(401, "Scheduler signature is required.");
-      const body = await json(request);
+      const body = await json(request, 1500000);
       if (
         !Number.isFinite(body.timestamp) ||
         Math.abs(Date.now() - body.timestamp) > 300000 ||
@@ -396,7 +462,74 @@ export async function handleMonitor(
         iso(),
       );
       if (!accepted) return out({ checked: 0, replayed: true });
-      return out(await runDueSources(db));
+      if (body.action === "claim") return out(await claimDueSources(db));
+      if (body.action === "edge") {
+        const source = await one(
+          db,
+          "SELECT kind FROM monitor_sources WHERE id=?",
+          text(body.source_id),
+        );
+        if (!source || !["structured", "rss"].includes(source.kind))
+          throw new Problem(
+            422,
+            "This source uses the direct provider collector.",
+          );
+        return out(
+          await syncSource(db, text(body.source_id), true, {
+            items: [],
+            edge: true,
+            lease: Number(body.lease),
+          }),
+        );
+      }
+      if (body.action === "complete") {
+        if (
+          !Array.isArray(body.items) ||
+          body.items.length > 100 ||
+          typeof body.source_id !== "string" ||
+          !Number.isFinite(body.lease)
+        )
+          throw new Problem(422, "Use a bounded collected review batch.");
+        for (const r of body.items) {
+          if (
+            typeof r.body !== "string" ||
+            r.body.length > 3000 ||
+            typeof r.externalId !== "string" ||
+            r.externalId.length > 2000 ||
+            typeof r.title !== "string" ||
+            r.title.length > 200 ||
+            typeof r.author !== "string" ||
+            r.author.length > 80 ||
+            typeof r.language !== "string" ||
+            r.language.length > 30
+          )
+            throw new Problem(422, "Invalid review fields.");
+          if (
+            r.rating !== null &&
+            (!Number.isFinite(r.rating) || r.rating < 1 || r.rating > 5)
+          )
+            throw new Problem(422, "Invalid review rating.");
+          try {
+            r.url = publicURL(r.url, true);
+          } catch {
+            throw new Problem(422, "Invalid review source URL.");
+          }
+          if (r.published !== null && !Number.isFinite(Date.parse(r.published)))
+            throw new Problem(422, "Invalid review date.");
+        }
+        const result = await syncSource(db, body.source_id, true, {
+          items: body.items,
+          error: text(body.error, 600),
+          lease: body.lease,
+        });
+        await run(
+          db,
+          "INSERT INTO monitor_state (id,value) VALUES ('scheduler',?) ON CONFLICT(id) DO UPDATE SET value=excluded.value",
+          JSON.stringify({ last_run: iso(), checked: 1 }),
+        );
+        return out(result);
+      }
+      return out({ checked: 0 });
     }
     const userId = request.headers.get("oai-authenticated-user-id");
     let session = request.headers
@@ -565,7 +698,6 @@ export async function handleMonitor(
           iso(),
           iso(),
         );
-        ctx.waitUntil(syncSource(db, sid));
       }
       return out({ id, role }, 201);
     }
@@ -726,7 +858,7 @@ export async function handleMonitor(
           iso(),
           iso(),
         );
-        ctx.waitUntil(syncSource(db, sid));
+
         return out({ id: sid }, 201);
       }
     }
@@ -757,7 +889,14 @@ export async function handleMonitor(
           id,
           owner,
         );
-        ctx.waitUntil(syncSource(db, id, true));
+        await run(
+          db,
+          "UPDATE monitor_sources SET next_check=?,note=? WHERE id=? AND owner=?",
+          iso(),
+          "Queued for the next cloud collector run.",
+          id,
+          owner,
+        );
         return out({ queued: true }, 202);
       }
       if (!action && method === "PATCH") {
